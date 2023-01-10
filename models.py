@@ -404,12 +404,19 @@ class MultiSubBandDiscriminator(torch.nn.Module):
 
 
 def feature_loss(fmap_r, fmap_g):
-    loss = 0
-    for dr, dg in zip(fmap_r, fmap_g):
-        for rl, gl in zip(dr, dg):
-            loss += torch.mean(torch.abs(rl - gl))
+  loss = 0
+  for dr, dg in zip(fmap_r, fmap_g):
+    for rl, gl in zip(dr, dg):
+      rl = rl.float().detach()
+      gl = gl.float()
+        
+      # fix last 1024 != 2048 after mcmbd
+      if gl.size()[-1] != rl.size()[-1]:
+        gl = gl.repeat(1,1,2)
+        
+      loss += torch.mean(torch.abs(rl - gl))
 
-    return loss*2
+  return loss * 2 
 
 
 def discriminator_loss(disc_real_outputs, disc_generated_outputs):
