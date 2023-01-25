@@ -47,6 +47,10 @@ def train(rank, a, h):
     if os.path.isdir(a.checkpoint_path):
         cp_g = scan_checkpoint(a.checkpoint_path, 'g_')
         cp_do = scan_checkpoint(a.checkpoint_path, 'do_')
+    
+    if len(a.pretrained):
+        cp_g = scan_checkpoint(a.pretrained, 'g_')
+        cp_do = scan_checkpoint(a.pretrained, 'do_')
 
     steps = 0
     if cp_g is None or cp_do is None:
@@ -58,8 +62,13 @@ def train(rank, a, h):
         generator.load_state_dict(state_dict_g['generator'])
         mcmbd.load_state_dict(state_dict_do['mcmbd'])
         msbd.load_state_dict(state_dict_do['msbd'])
+        
         steps = state_dict_do['steps'] + 1
         last_epoch = state_dict_do['epoch']
+        if len(a.pretrained):
+            print("WARM START mode. Resetting scheduler.")
+            steps = 1
+            last_epoch = 0
 
     if h.num_gpus > 1:
         generator = DistributedDataParallel(generator, device_ids=[rank]).to(device)
@@ -73,6 +82,10 @@ def train(rank, a, h):
     if state_dict_do is not None:
         optim_g.load_state_dict(state_dict_do['optim_g'])
         optim_d.load_state_dict(state_dict_do['optim_d'])
+    
+    if len(a.pretrained):
+        optim_g.param_groups[0]["lr"] = h.learning_rate
+        optim_d.param_groups[0]["lr"] = h.learning_rate
 
     scheduler_g = torch.optim.lr_scheduler.ExponentialLR(optim_g, gamma=h.lr_decay, last_epoch=last_epoch)
     scheduler_d = torch.optim.lr_scheduler.ExponentialLR(optim_d, gamma=h.lr_decay, last_epoch=last_epoch)
@@ -258,10 +271,11 @@ def main():
     parser.add_argument('--config', default='')
     parser.add_argument('--training_epochs', default=3100, type=int)
     parser.add_argument('--stdout_interval', default=5, type=int)
-    parser.add_argument('--checkpoint_interval', default=5000, type=int)
+    parser.add_argument('--checkpoint_interval', default=10000, type=int)
     parser.add_argument('--summary_interval', default=100, type=int)
-    parser.add_argument('--validation_interval', default=1000, type=int)
+    parser.add_argument('--validation_interval', default=2500, type=int)
     parser.add_argument('--fine_tuning', default=False, type=bool)
+    parser.add_argument('--pretrained', default="")
 
     a = parser.parse_args()
 

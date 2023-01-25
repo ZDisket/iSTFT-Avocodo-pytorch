@@ -171,16 +171,11 @@ class MelDataset(torch.utils.data.Dataset):
         audio_sq = audio.squeeze(0)
         
         if len(audio_sq) != self.segment_size and self.split:
-            print(f"FILE {filename} not segsize")
             if len(audio_sq) < self.segment_size:
                 audio_sq = pad_to(audio_sq,self.segment_size)
             else:
                 audio_sq = audio_sq[:self.segment_size]
             
-            if len(audio_sq) == self.segment_size:
-                print(f"{filename} corrected succesfully")
-            else:
-                print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             
             audio = audio_sq.unsqueeze(0)
         
