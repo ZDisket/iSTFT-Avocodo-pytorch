@@ -82,11 +82,11 @@ def get_dataset_filelist(a):
         
     with open(a.input_training_file, 'r', encoding='utf-8') as fi:
         training_files = [os.path.join(a.input_wavs_dir, x.split('|')[0])
-                          for x in fi.read().split('\n') if len(x) > 0]
+                          for x in fi.read().split('\n') if len(x) > 0 and not "IPA" in x]
 
     with open(a.input_validation_file, 'r', encoding='utf-8') as fi:
         validation_files = [os.path.join(a.input_wavs_dir, x.split('|')[0])
-                            for x in fi.read().split('\n') if len(x) > 0]
+                            for x in fi.read().split('\n') if len(x) > 0 and not "IPA" in x]
     
     return training_files, validation_files
 
