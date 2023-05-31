@@ -15,12 +15,11 @@ from torch.nn.parallel import DistributedDataParallel
 from env import AttrDict, build_env
 from meldataset import MelDataset, mel_spectrogram, get_dataset_filelist
 from models import Generator, MultiCoMBDiscriminator, MultiSubBandDiscriminator, feature_loss, generator_loss,\
-    discriminator_loss
+    discriminator_loss, auto_slice_2nd_dim
 from utils import plot_spectrogram, scan_checkpoint, load_checkpoint, save_checkpoint
 from stft import TorchSTFT
 
-torch.backends.cudnn.benchmark = True
-
+torch.backends.cudnn.benchmark = False
 
 def train(rank, a, h):
     if h.num_gpus > 1:
@@ -72,7 +71,7 @@ def train(rank, a, h):
 
     if h.num_gpus > 1:
         generator = DistributedDataParallel(generator, device_ids=[rank]).to(device)
-        mcmbd = DistributedDataParallel(mcmbd, device_ids=[rank]).to(device)
+        mcmbd = DistributedDataParallel(mcmbd, device_ids=[rank], find_unused_parameters=True).to(device)
         msbd = DistributedDataParallel(msbd, device_ids=[rank]).to(device)
 
     optim_g = torch.optim.AdamW(generator.parameters(), h.learning_rate, betas=[h.adam_b1, h.adam_b2])
@@ -136,6 +135,7 @@ def train(rank, a, h):
             x = torch.autograd.Variable(x.to(device, non_blocking=True))
             y = torch.autograd.Variable(y.to(device, non_blocking=True))
             y_mel = torch.autograd.Variable(y_mel.to(device, non_blocking=True))
+            stft = stft.cuda(rank)
             y = y.unsqueeze(1)
             # y_g_hat = generator(x)
             spec, phase, x1 = generator(x)
@@ -164,6 +164,9 @@ def train(rank, a, h):
             optim_g.zero_grad()
 
             # L1 Mel-Spectrogram Loss
+            y_g_hat_mel, y_mel = auto_slice_2nd_dim(y_g_hat_mel, y_mel)
+
+                
             loss_mel = F.l1_loss(y_mel, y_g_hat_mel) * 45
 
             y_df_hat_r, y_df_hat_g, fmap_f_r, fmap_f_g = mcmbd(y, y_g_hat, x1)
